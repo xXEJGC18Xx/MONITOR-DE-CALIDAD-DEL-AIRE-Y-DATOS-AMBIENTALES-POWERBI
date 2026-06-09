@@ -19,13 +19,5 @@ __pycache__/
 # Sistema
 .DS_Store
 
-.env
-config.py
-data/raw/
-data/processed/
-*.pkl
-*.db
-__pycache__/
-
 README.md
 app_old.py
