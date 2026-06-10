@@ -215,9 +215,9 @@ with col_mapa:
             f"max-width:180px; line-height:1.8; font-family:sans-serif'>"
             f"<b style='font-size:14px'>{fila['ciudad']}</b>"
             f"<hr style='margin:4px 0'>"
-            f"🌫️ AQI: <b>{txt_aqi}</b><br>"
-            f"💨 PM2.5: <b>{pm25_txt}</b><br>"
-            f"📊 Categoría: <b>{txt_cat}</b>"
+            f"AQI: <b>{txt_aqi}</b><br>"
+            f"PM2.5: <b>{pm25_txt}</b><br>"
+            f"Categoría: <b>{txt_cat}</b>"
             f"</div>"
         )
 
