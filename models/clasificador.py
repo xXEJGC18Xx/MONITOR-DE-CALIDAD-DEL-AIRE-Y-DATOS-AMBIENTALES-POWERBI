@@ -37,25 +37,30 @@ def entrenar_clasificador():
     """
     Entrena el clasificador de categoría AQI a partir de data/processed/datos.csv.
 
-    Construye un Pipeline (StandardScaler + RandomForestClassifier), optimiza
-    hiperparámetros con GridSearchCV, imprime accuracy y classification_report,
-    y serializa el mejor modelo en data/processed/clasificador.pkl.
+    Construye un Pipeline (StandardScaler + RandomForestClassifier con class_weight='balanced'),
+    optimiza hiperparámetros con GridSearchCV usando KFold (no estratificado) y scoring de
+    'balanced_accuracy' para manejar clases desbalanceadas (incluyendo categorías dañinas
+    con pocas muestras). Imprime accuracy estándar y classification report, y serializa
+    el mejor modelo en data/processed/clasificador.pkl.
+
+    La división train/test se realiza sin estratificación para permitir clases con
+    una sola instancia.
 
     Retorna
     -------
     tuple[sklearn.pipeline.Pipeline, dict]
-        (modelo_entrenado, métricas). Si no hay datos suficientes retorna
-        (None, {}).
+        (modelo_entrenado, métricas). Si no hay datos suficientes retorna (None, {}).
     """
+   
+    """Entrena el clasificador sin eliminar clases raras."""
     if not CSV_PROCESADO.exists():
         logger.error("No existe %s. Ejecute primero el pipeline.", CSV_PROCESADO)
         return None, {}
 
     df = pd.read_csv(CSV_PROCESADO)
-
-    # Solo filas con todos los features y el target presentes.
     columnas = FEATURES + [TARGET]
     df = df.dropna(subset=columnas)
+
     if df.empty or df[TARGET].nunique() < 2:
         logger.error("Datos insuficientes o menos de 2 clases para entrenar.")
         return None, {}
@@ -63,45 +68,39 @@ def entrenar_clasificador():
     X = df[FEATURES]
     y = df[TARGET]
 
-    # Stratify solo si la división puede conservar todas las clases.
-    conteos = y.value_counts()
-    num_clases = y.nunique()
-    test_count = max(1, ceil(len(df) * 0.20))
-    if conteos.min() < 2 or test_count < num_clases:
-        logger.error(
-            "Datos insuficientes para dividir entrenamiento/prueba de forma segura."
-        )
-        return None, {}
-
-    estratificar = y
-
+    # --- 1. División simple sin estratificación (permite clases con 1 muestra) ---
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.20, random_state=42, stratify=estratificar
+        X, y, test_size=0.20, random_state=42, stratify=None
     )
 
-    conteos_train = y_train.value_counts()
-    if y_train.nunique() < 2 or conteos_train.min() < 2:
-        logger.error(
-            "Datos insuficientes en entrenamiento para validación cruzada."
-        )
+    # Verificar que haya al menos 2 clases en entrenamiento y que cada una tenga al menos 1 muestra
+    if y_train.nunique() < 2:
+        logger.error("Entrenamiento con una sola clase, no se puede entrenar.")
         return None, {}
 
+    # --- 2. Pipeline con clase balanced ---
     pipeline = Pipeline([
         ("scaler", StandardScaler()),
-        ("rf", RandomForestClassifier(random_state=42)),
+        ("rf", RandomForestClassifier(random_state=42, class_weight='balanced')),
     ])
 
-    malla = {
+    # --- 3. GridSearchCV con validación cruzada simple (no estratificada) ---
+    #    Usamos KFold normal (no StratifiedKFold) para evitar errores con clases raras
+    from sklearn.model_selection import KFold
+    param_grid = {
         "rf__n_estimators": [100, 200],
         "rf__max_depth": [5, 10, None],
     }
-
-    # cv adaptativo para no romper con datasets pequeños.
-    cv = min(3, int(conteos_train.min()), len(X_train))
-    if cv < 2:
-        logger.error("Datos insuficientes para GridSearchCV.")
+    # Número de folds: no puede superar el tamaño de la clase más pequeña, pero como no estratificamos,
+    # podemos usar un valor fijo pequeño. Si alguna clase tiene 1 muestra, KFold normal igual partirá
+    # los datos sin respetar clases, lo cual es aceptable para validación.
+    cv_folds = min(3, len(X_train))  # máximo 3 folds
+    if cv_folds < 2:
+        logger.error("Muy pocos datos para validación cruzada.")
         return None, {}
-    grid = GridSearchCV(pipeline, malla, cv=cv, n_jobs=-1, scoring="accuracy")
+
+    kfold = KFold(n_splits=cv_folds, shuffle=True, random_state=42)
+    grid = GridSearchCV(pipeline, param_grid, cv=kfold, n_jobs=-1, scoring="balanced_accuracy")
     grid.fit(X_train, y_train)
 
     modelo = grid.best_estimator_
@@ -123,7 +122,6 @@ def entrenar_clasificador():
         "classification_report": reporte,
     }
     return modelo, metricas
-
 
 def predecir(datos_dict):
     """

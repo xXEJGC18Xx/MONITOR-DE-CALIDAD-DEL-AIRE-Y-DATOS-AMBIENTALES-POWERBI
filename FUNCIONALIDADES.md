@@ -202,25 +202,22 @@ Cada ciudad incluye:
 - Usa como variable objetivo `categoria_aqi`.
 - Elimina filas con valores faltantes en features o target.
 - Valida que existan al menos 2 clases para entrenar.
-- Divide datos en entrenamiento y prueba.
-- Usa `train_test_split` con `test_size=0.20`.
+- Divide datos en entrenamiento y prueba con `train_test_split` y `stratify=None` (sin estratificación) para permitir clases con muy pocas muestras (como categorías dañinas).
 - Usa `random_state=42` para reproducibilidad.
-- Usa estratificacion si cada clase tiene al menos 2 muestras.
-- Omite estratificacion cuando alguna clase tiene menos de 2 muestras.
 - Construye un pipeline de ML con:
   - `StandardScaler`.
-  - `RandomForestClassifier`.
-- Optimiza hiperparametros con `GridSearchCV`.
+  - `RandomForestClassifier` con `class_weight='balanced'` para dar mayor peso a las clases minoritarias.
+- Optimiza hiperparámetros con `GridSearchCV`.
 - Prueba `n_estimators` de 100 y 200.
 - Prueba `max_depth` de 5, 10 y `None`.
-- Usa validacion cruzada adaptativa para datasets pequenos.
-- Usa accuracy como metrica de seleccion.
+- Usa validación cruzada con `KFold` (no estratificada) y `scoring='balanced_accuracy'` para manejar adecuadamente el desbalance de clases.
+- Ajusta el número de folds de forma adaptativa (máximo 3) para evitar errores con datasets pequeños.
 - Entrena el mejor modelo encontrado.
-- Calcula accuracy en conjunto de prueba.
-- Genera `classification_report`.
-- Imprime mejores hiperparametros.
+- Calcula `balanced_accuracy` (internamente durante la búsqueda) y accuracy estándar en el conjunto de prueba.
+- Genera `classification_report` (con soporte real de cada clase).
+- Imprime mejores hiperparámetros.
 - Imprime accuracy.
-- Imprime reporte de clasificacion.
+- Imprime reporte de clasificación.
 - Guarda el modelo entrenado en `data/processed/clasificador.pkl`.
 - Puede predecir la categoria AQI para un diccionario de features.
 - Carga automaticamente el modelo entrenado para predecir.

@@ -58,33 +58,37 @@ def ultimas_lecturas(df):
 
 
 def _inyectar_estilos():
-    """Ajustes visuales para filtros, textos largos y metricas."""
     st.markdown(
         """
         <style>
-        [data-testid="stSidebar"] [data-baseweb="select"] {
-            min-height: 46px;
+        /* Forzar wrap en todas las métricas */
+        div[data-testid="stMetricValue"] {
+            white-space: normal !important;
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+            text-overflow: clip !important;
         }
+        div[data-testid="stMetricLabel"] {
+            white-space: normal !important;
+        }
+        /* Sidebar multiselect (opcional, para nombres largos en filtros) */
         [data-testid="stSidebar"] [data-baseweb="tag"] {
             height: auto;
             max-width: 100%;
             white-space: normal;
+            word-break: break-word;
         }
         [data-testid="stSidebar"] [data-baseweb="tag"] span {
             overflow: visible;
             text-overflow: clip;
             white-space: normal;
+            word-break: break-word;
         }
         [data-testid="stSidebar"] div[role="option"] {
             height: auto;
             min-height: 36px;
             white-space: normal;
-        }
-        [data-testid="stMetricValue"] {
-            overflow-wrap: anywhere;
-            white-space: normal;
-            line-height: 1.15;
-            font-size: clamp(1.35rem, 2vw, 2rem);
+            word-break: break-word;
         }
         </style>
         """,
@@ -199,7 +203,7 @@ ultimas = ultimas_lecturas(df_filtrado)
 
 # KPIs
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4 = st.columns([1.2, 2, 1, 1])
 
 aqi_prom = ultimas["aqi"].mean(skipna=True)
 pm25_prom = ultimas["pm25"].mean(skipna=True)

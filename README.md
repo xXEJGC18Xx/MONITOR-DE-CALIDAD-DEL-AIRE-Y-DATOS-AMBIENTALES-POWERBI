@@ -2,7 +2,7 @@
 
 Sistema integral de monitoreo ambiental que recopila, procesa y analiza la calidad del aire y las condiciones climaticas de ciudades clave de America Latina. El proyecto integra un pipeline de datos automatizado, modelos de Machine Learning para clasificacion y prediccion, generacion de resumenes con un modelo de lenguaje (LLM) y un dashboard interactivo construido con Streamlit.
 
-Desarrollado para la materia Gestion de la Informacion de la Universidad Tecnologica de Panama (UTP), el sistema combina ingesta desde APIs publicas (WAQI y Open-Meteo), almacenamiento en CSV y SQLite, feature engineering, un clasificador Random Forest de categoria AQI, prediccion de PM2.5 a 24 horas con fallback a regresion lineal y visualizacion geoespacial con mapas Folium.
+Desarrollado para la materia Gestion de la Informacion de la Universidad Tecnologica de Panama (UTP), el sistema combina ingesta desde APIs publicas (WAQI y Open-Meteo), almacenamiento en CSV y SQLite, feature engineering, un clasificador Random Forest de categoria AQI (con manejo de clases desbalanceadas mediante class_weight='balanced' y validación cruzada no estratificada), prediccion de PM2.5 a 24 horas con fallback a regresion lineal y visualizacion geoespacial con mapas Folium.
 
 ---
 
@@ -116,3 +116,8 @@ Mapa interactivo basado en el enfoque del articulo [Building a Live Weather and 
 ## Grupo 6 - UTP
 
 Proyecto academico de la materia Gestion de la Informacion.
+Edwin Hou
+Emanuel Gonzalez
+Edward Camaño
+David Pimentel
+Fernando Lezcano
