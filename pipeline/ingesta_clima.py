@@ -10,6 +10,7 @@ https://github.com/jimdowling/air_quality
 
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
 import pandas as pd
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 TIMEOUT = 15  # segundos
+MAX_WORKERS = 8
 
 
 def _indice_hora_actual(horas_iso):
@@ -140,13 +142,25 @@ def fetch_clima_todas_ciudades():
     pandas.DataFrame
         DataFrame consolidado con una fila por ciudad.
     """
-    registros = []
-    for ciudad, info in CIUDADES.items():
-        try:
-            resultado = fetch_clima(ciudad, info["lat"], info["lon"])
-            registros.append(resultado)
-        except Exception as exc:  # noqa: BLE001 - resiliencia del pipeline
-            logger.error("Fallo inesperado de clima con %s: %s", ciudad, exc)
+    registros_por_ciudad = {}
+    workers = min(MAX_WORKERS, max(1, len(CIUDADES)))
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futuros = {
+            executor.submit(fetch_clima, ciudad, info["lat"], info["lon"]): ciudad
+            for ciudad, info in CIUDADES.items()
+        }
+        for futuro in as_completed(futuros):
+            ciudad = futuros[futuro]
+            try:
+                registros_por_ciudad[ciudad] = futuro.result()
+            except Exception as exc:  # noqa: BLE001 - resiliencia del pipeline
+                logger.error("Fallo inesperado de clima con %s: %s", ciudad, exc)
+
+    registros = [
+        registros_por_ciudad[ciudad]
+        for ciudad in CIUDADES
+        if ciudad in registros_por_ciudad
+    ]
 
     marca = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     ruta_raw = RAW_DIR / f"clima_{marca}.json"
