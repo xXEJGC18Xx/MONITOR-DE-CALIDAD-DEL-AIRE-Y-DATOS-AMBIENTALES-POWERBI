@@ -92,7 +92,7 @@ def generar_resumen_diario(df):
     """
     m = _metricas_resumen(df)
     respaldo = (
-        f"Estado del aire en Panamá: la ciudad con peor calidad es "
+        f"Estado del aire en America Latina: la ciudad con peor calidad es "
         f"{m['ciudad_max_aqi']} y la mejor es {m['ciudad_min_aqi']}. "
         f"El PM2.5 promedio es {m['promedio_pm25']:.1f}. "
         f"{m['ciudades_sobre_100']} ciudad(es) superan un AQI de 100. "
@@ -159,7 +159,7 @@ def generar_alerta(ciudad, aqi):
         return respaldo
 
     prompt = (
-        f"Eres un experto ambiental panameño. La ciudad de {ciudad} registra "
+        f"Eres un experto ambiental en America Latina. La ciudad de {ciudad} registra "
         f"un AQI de {aqi:.0f}. Escribe una alerta breve (máximo 40 palabras) en "
         f"español, clara y directa, con una recomendación concreta para la "
         f"población. Responde SOLO con la alerta."

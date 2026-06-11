@@ -9,6 +9,7 @@ https://github.com/Rxghav1103/Real-Time-AQI-Prediction-Using-Machine-Learning
 """
 
 import logging
+from math import ceil
 
 import joblib
 import pandas as pd
@@ -62,15 +63,28 @@ def entrenar_clasificador():
     X = df[FEATURES]
     y = df[TARGET]
 
-    # Stratify solo si cada clase tiene al menos 2 muestras.
+    # Stratify solo si la división puede conservar todas las clases.
     conteos = y.value_counts()
-    estratificar = y if (conteos.min() >= 2) else None
-    if estratificar is None:
-        logger.warning("Alguna clase tiene < 2 muestras; se omite stratify.")
+    num_clases = y.nunique()
+    test_count = max(1, ceil(len(df) * 0.20))
+    if conteos.min() < 2 or test_count < num_clases:
+        logger.error(
+            "Datos insuficientes para dividir entrenamiento/prueba de forma segura."
+        )
+        return None, {}
+
+    estratificar = y
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.20, random_state=42, stratify=estratificar
     )
+
+    conteos_train = y_train.value_counts()
+    if y_train.nunique() < 2 or conteos_train.min() < 2:
+        logger.error(
+            "Datos insuficientes en entrenamiento para validación cruzada."
+        )
+        return None, {}
 
     pipeline = Pipeline([
         ("scaler", StandardScaler()),
@@ -83,7 +97,10 @@ def entrenar_clasificador():
     }
 
     # cv adaptativo para no romper con datasets pequeños.
-    cv = min(3, conteos.min()) if conteos.min() >= 2 else 2
+    cv = min(3, int(conteos_train.min()), len(X_train))
+    if cv < 2:
+        logger.error("Datos insuficientes para GridSearchCV.")
+        return None, {}
     grid = GridSearchCV(pipeline, malla, cv=cv, n_jobs=-1, scoring="accuracy")
     grid.fit(X_train, y_train)
 

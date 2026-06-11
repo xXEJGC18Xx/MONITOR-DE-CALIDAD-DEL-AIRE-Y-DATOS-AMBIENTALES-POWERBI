@@ -109,6 +109,8 @@ def _predecir_lineal(df):
     pandas.DataFrame
         Columnas: hora, pm25_predicho, lower, upper.
     """
+    from sklearn.linear_model import LinearRegression
+
     # Asegurar features temporales.
     if "hora_del_dia" not in df.columns:
         df["hora_del_dia"] = df["timestamp"].dt.hour

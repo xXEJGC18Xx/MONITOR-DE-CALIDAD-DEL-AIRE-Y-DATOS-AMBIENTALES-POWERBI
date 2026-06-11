@@ -110,12 +110,22 @@ def preprocesar(df):
 
     df = df.copy()
 
+    if "timestamp" not in df.columns:
+        logger.warning("Columna timestamp ausente; se usará NaT.")
+        df["timestamp"] = pd.NaT
+    if "aqi" not in df.columns:
+        logger.warning("Columna aqi ausente; se marcará como sin datos.")
+        df["aqi"] = pd.NA
+
     # 1) timestamp -> datetime UTC
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
 
     # 2) eliminar filas con > 50% de nulos
     umbral_validos = int(df.shape[1] * 0.5)  # mínimo de valores no nulos
     df = df.dropna(thresh=umbral_validos).reset_index(drop=True)
+    if df.empty:
+        logger.warning("DataFrame vacío después de eliminar filas con demasiados nulos.")
+        return df
 
     # 3) interpolación lineal de columnas numéricas
     columnas_num = df.select_dtypes(include="number").columns

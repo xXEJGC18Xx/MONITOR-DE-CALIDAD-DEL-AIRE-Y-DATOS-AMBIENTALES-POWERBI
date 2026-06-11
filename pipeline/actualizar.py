@@ -94,7 +94,7 @@ def _df_vacio():
 def main():
     """Punto de entrada: parsea argumentos y elige modo de ejecución."""
     parser = argparse.ArgumentParser(
-        description="Orquestador del pipeline ambiental de Panamá."
+        description="Orquestador del pipeline ambiental de America Latina."
     )
     parser.add_argument(
         "--now",

@@ -10,6 +10,7 @@ Referencia de organización: https://github.com/oajetunm/air-quality-dashboard
 
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
 import pandas as pd
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 WAQI_BASE_URL = "https://api.waqi.info/feed"
 TIMEOUT = 15  # segundos
+MAX_WORKERS = 8
 
 
 def _extraer(iaqi, clave):
@@ -134,14 +136,24 @@ def fetch_todas_ciudades():
     pandas.DataFrame
         DataFrame consolidado con una fila por ciudad.
     """
-    registros = []
-    for ciudad in CIUDADES:
-        try:
-            resultado = fetch_waqi(ciudad)
-            if resultado is not None:
-                registros.append(resultado)
-        except Exception as exc:  # noqa: BLE001 - resiliencia del pipeline
-            logger.error("Fallo inesperado con %s: %s", ciudad, exc)
+    registros_por_ciudad = {}
+    workers = min(MAX_WORKERS, max(1, len(CIUDADES)))
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futuros = {executor.submit(fetch_waqi, ciudad): ciudad for ciudad in CIUDADES}
+        for futuro in as_completed(futuros):
+            ciudad = futuros[futuro]
+            try:
+                resultado = futuro.result()
+                if resultado is not None:
+                    registros_por_ciudad[ciudad] = resultado
+            except Exception as exc:  # noqa: BLE001 - resiliencia del pipeline
+                logger.error("Fallo inesperado con %s: %s", ciudad, exc)
+
+    registros = [
+        registros_por_ciudad[ciudad]
+        for ciudad in CIUDADES
+        if ciudad in registros_por_ciudad
+    ]
 
     # Guardar el crudo consolidado con marca de tiempo en el nombre.
     marca = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
