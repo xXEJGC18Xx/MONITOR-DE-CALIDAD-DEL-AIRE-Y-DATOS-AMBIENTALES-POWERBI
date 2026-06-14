@@ -15,6 +15,7 @@ from config import (
     CSV_PROCESADO,
     DB_PATH,
     RAW_DIR,
+    calcular_aqi_efectivo,
     get_categoria_aqi,
 )
 
@@ -145,6 +146,19 @@ def preprocesar(df):
     df["es_fin_de_semana"] = (df["dia_semana"] >= 5).astype(int)
     df["mes"] = df["timestamp"].dt.month
 
+    # 4a) AQI efectivo: el reportado por WAQI puede quedar desactualizado
+    # mientras pm25/pm10 siguen subiendo (visto en datos reales: aqi fijo
+    # en 54 con pm25 > 300). Se conserva el original en 'aqi_reportado' y
+    # 'aqi' pasa a ser el máximo entre lo reportado y lo calculado desde
+    # pm25/pm10, igual que define el estándar EPA (máximo de sub-índices).
+    df["aqi_reportado"] = df["aqi"]
+    df["aqi"] = df.apply(
+        lambda fila: calcular_aqi_efectivo(
+            fila.get("aqi_reportado"), fila.get("pm25"), fila.get("pm10")
+        ),
+        axis=1,
+    )
+    
     # 4b) features derivados del AQI usando la función auxiliar de config.
     categorias = df["aqi"].apply(get_categoria_aqi)
     df["categoria_aqi"] = categorias.apply(lambda c: c["etiqueta"])

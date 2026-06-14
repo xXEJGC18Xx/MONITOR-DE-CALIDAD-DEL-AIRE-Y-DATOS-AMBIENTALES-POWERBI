@@ -257,7 +257,7 @@ ultimas = ultimas_lecturas(df_filtrado)
 
 # KPIs: tarjetas resumen en la parte superior del dashboard
 
-col1, col2, col3, col4 = st.columns([1.2, 2, 1, 1])
+col1, col2, col3, col4 = st.columns([0.8, 2, 1, 2])
 
 # Promedios generales considerando solo las ciudades/fechas filtradas.
 aqi_prom = ultimas["aqi"].mean(skipna=True)
