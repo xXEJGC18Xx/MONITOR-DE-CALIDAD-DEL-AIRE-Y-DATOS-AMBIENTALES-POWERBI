@@ -47,6 +47,7 @@ def _indice_hora_actual(horas_iso):
         return 0
     ahora = datetime.now()
     mejor_idx, mejor_dif = 0, None
+    # Recorrer todas las marcas para hallar la más cercana a la hora actual.
     for idx, marca in enumerate(horas_iso):
         try:
             t = datetime.fromisoformat(marca)
@@ -90,6 +91,7 @@ def fetch_clima(ciudad, lat, lon):
         "codigo_clima": None,
     }
 
+    # Parámetros de la solicitud a Open-Meteo.
     params = {
         "latitude": lat,
         "longitude": lon,
@@ -107,15 +109,17 @@ def fetch_clima(ciudad, lat, lon):
         payload = respuesta.json()
         horaria = payload.get("hourly", {})
 
+        # Encontrar el índice de la hora más cercana a la actual.
         idx = _indice_hora_actual(horaria.get("time", []))
 
+        # Función auxiliar para obtener el valor en el índice encontrado.
         def _val(clave):
-            """Lee el valor en el índice actual de forma segura."""
             serie = horaria.get(clave)
             if isinstance(serie, list) and idx < len(serie):
                 return serie[idx]
             return None
 
+        # Asignar los valores al registro.
         registro["temperatura"] = _val("temperature_2m")
         registro["temperatura_aparente"] = _val("apparent_temperature")
         registro["humedad"] = _val("relative_humidity_2m")
@@ -143,6 +147,7 @@ def fetch_clima_todas_ciudades():
         DataFrame consolidado con una fila por ciudad.
     """
     registros_por_ciudad = {}
+    # Consultar en paralelo usando ThreadPoolExecutor.
     workers = min(MAX_WORKERS, max(1, len(CIUDADES)))
     with ThreadPoolExecutor(max_workers=workers) as executor:
         futuros = {
@@ -156,12 +161,14 @@ def fetch_clima_todas_ciudades():
             except Exception as exc:  # noqa: BLE001 - resiliencia del pipeline
                 logger.error("Fallo inesperado de clima con %s: %s", ciudad, exc)
 
+    # Construir lista en el orden de las ciudades definidas.
     registros = [
         registros_por_ciudad[ciudad]
         for ciudad in CIUDADES
         if ciudad in registros_por_ciudad
     ]
 
+    # Guardar el JSON crudo con marca de tiempo.
     marca = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     ruta_raw = RAW_DIR / f"clima_{marca}.json"
     try:
@@ -175,6 +182,7 @@ def fetch_clima_todas_ciudades():
 
 
 if __name__ == "__main__":
+    # Prueba de la ingesta de clima.
     df = fetch_clima_todas_ciudades()
     print("\n=== DataFrame Clima consolidado ===")
     print(df.to_string(index=False))

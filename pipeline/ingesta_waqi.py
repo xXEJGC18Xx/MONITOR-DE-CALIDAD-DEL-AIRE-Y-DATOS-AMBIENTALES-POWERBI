@@ -68,11 +68,13 @@ def fetch_waqi(ciudad):
         pm10, co, o3, no2, so2, temperatura y humedad. Los campos ausentes
         quedan en None. Retorna None si la ciudad no existe en el config.
     """
+    # Obtener el identificador WAQI de la ciudad desde la configuración.
     info = CIUDADES.get(ciudad)
     if info is None:
         logger.error("Ciudad desconocida: %s", ciudad)
         return None
 
+    # Construir URL y estructura base del registro.
     url = f"{WAQI_BASE_URL}/{info['waqi_id']}/?token={WAQI_TOKEN}"
     registro = {
         "ciudad": ciudad,
@@ -89,10 +91,12 @@ def fetch_waqi(ciudad):
     }
 
     try:
+        # Realizar la petición HTTP.
         respuesta = requests.get(url, timeout=TIMEOUT)
         respuesta.raise_for_status()
         payload = respuesta.json()
 
+        # Verificar que la respuesta sea exitosa.
         if payload.get("status") != "ok":
             logger.warning("WAQI devolvió estado '%s' para %s",
                            payload.get("status"), ciudad)
@@ -101,7 +105,7 @@ def fetch_waqi(ciudad):
         data = payload.get("data", {})
         iaqi = data.get("iaqi", {})
 
-        # El AQI principal viene como número directo.
+        # Asignar valores según lo devuelto por la API.
         aqi_valor = data.get("aqi")
         registro["aqi"] = aqi_valor if isinstance(aqi_valor, (int, float)) else None
         registro["pm25"] = _extraer(iaqi, "pm25")
@@ -137,6 +141,7 @@ def fetch_todas_ciudades():
         DataFrame consolidado con una fila por ciudad.
     """
     registros_por_ciudad = {}
+    # Usar ThreadPoolExecutor para consultar en paralelo.
     workers = min(MAX_WORKERS, max(1, len(CIUDADES)))
     with ThreadPoolExecutor(max_workers=workers) as executor:
         futuros = {executor.submit(fetch_waqi, ciudad): ciudad for ciudad in CIUDADES}
@@ -149,13 +154,14 @@ def fetch_todas_ciudades():
             except Exception as exc:  # noqa: BLE001 - resiliencia del pipeline
                 logger.error("Fallo inesperado con %s: %s", ciudad, exc)
 
+    # Construir lista de registros en el orden de las ciudades definidas.
     registros = [
         registros_por_ciudad[ciudad]
         for ciudad in CIUDADES
         if ciudad in registros_por_ciudad
     ]
 
-    # Guardar el crudo consolidado con marca de tiempo en el nombre.
+    # Guardar el JSON crudo con marca de tiempo.
     marca = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     ruta_raw = RAW_DIR / f"waqi_{marca}.json"
     try:
@@ -169,6 +175,7 @@ def fetch_todas_ciudades():
 
 
 if __name__ == "__main__":
+    # Prueba de la ingesta WAQI.
     df = fetch_todas_ciudades()
     print("\n=== DataFrame WAQI consolidado ===")
     print(df.to_string(index=False))

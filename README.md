@@ -1,12 +1,12 @@
-# Monitor de Calidad del Aire y Datos Ambientales de America Latina
+# Monitor de Calidad del Aire y Datos Ambientales de América Latina
 
-Sistema integral de monitoreo ambiental que recopila, procesa y analiza la calidad del aire y las condiciones climaticas de ciudades clave de America Latina. El proyecto integra un pipeline de datos automatizado, modelos de Machine Learning para clasificacion y prediccion, generacion de resumenes con un modelo de lenguaje (LLM) y un dashboard interactivo construido con Streamlit.
+Sistema integral de monitoreo ambiental que recopila, procesa y analiza la calidad del aire y las condiciones climáticas de ciudades clave de América Latina. El proyecto integra un pipeline de datos automatizado (con ingestas paralelas a WAQI y Open-Meteo usando `ThreadPoolExecutor`), modelos de Machine Learning para clasificación y predicción, generación de resúmenes con un modelo de lenguaje (LLM) y un dashboard interactivo construido con Streamlit que incluye **filtros por país y por ciudad**.
 
-Desarrollado para la materia Gestion de la Informacion de la Universidad Tecnologica de Panama (UTP), el sistema combina ingesta desde APIs publicas (WAQI y Open-Meteo), almacenamiento en CSV y SQLite, feature engineering, un clasificador Random Forest de categoria AQI (con manejo de clases desbalanceadas mediante class_weight='balanced' y validación cruzada no estratificada), prediccion de PM2.5 a 24 horas con fallback a regresion lineal y visualizacion geoespacial con mapas Folium.
+Desarrollado para la materia Gestión de la Información de la Universidad Tecnológica de Panamá (UTP), el sistema combina ingesta desde APIs públicas (WAQI y Open-Meteo), almacenamiento en CSV y SQLite, feature engineering, un clasificador Random Forest de categoría AQI (con manejo de clases desbalanceadas mediante `class_weight='balanced'` y validación cruzada no estratificada), predicción de PM2.5 a 24 horas con fallback a regresión lineal y visualización geoespacial con mapas Folium.
 
 ---
 
-## Instalacion
+## Instalación
 
 ```bash
 git clone <URL_DEL_REPOSITORIO>
@@ -63,42 +63,44 @@ El dashboard se abre automaticamente en `http://localhost:8501`.
 
 ---
 
-## Criterios de evaluacion
-
-| Criterio | Componente del proyecto | Peso |
-|----------|-------------------------|------|
-| Pipeline de datos | Ingesta (WAQI + Open-Meteo), preprocesamiento y orquestacion | 30% |
-| Analisis con Machine Learning | Clasificador Random Forest + prediccion PM2.5 a 24h | 25% |
-| Dashboard interactivo | Streamlit con mapas, KPIs y graficas | 25% |
-| Documentacion | README, docstrings y notebook de exploracion | 20% |
-
----
-
 ## Estructura del proyecto
 
 ```text
 Monitor-de-Calidad-del-Aire-y-Datos-Ambientales/
-├── config.py              # Configuracion central: claves, ciudades, umbrales AQI y rutas
+├── config.py              # Configuración central: claves, ciudades, umbrales AQI y rutas
 ├── requirements.txt
 ├── README.md
+├── FUNCIONALIDADES.md     # Lista detallada de todas las funcionalidades (ver más abajo)
 ├── pipeline/
-│   ├── ingesta_waqi.py    # Ingesta de calidad del aire (WAQI)
-│   ├── ingesta_clima.py   # Ingesta de clima (Open-Meteo)
-│   ├── preprocesar.py     # Limpieza, fusion y feature engineering
+│   ├── __init__.py
+│   ├── ingesta_waqi.py    # Ingesta de calidad del aire (WAQI) con ThreadPoolExecutor
+│   ├── ingesta_clima.py   # Ingesta de clima (Open-Meteo) con ThreadPoolExecutor
+│   ├── preprocesar.py     # Limpieza, fusión y feature engineering
 │   └── actualizar.py      # Orquestador con scheduler
 ├── models/
-│   ├── clasificador.py    # Random Forest de categoria AQI
-│   └── prediccion.py      # Prediccion PM2.5 24h (Prophet / fallback lineal)
+│   ├── __init__.py
+│   ├── clasificador.py    # Random Forest de categoría AQI
+│   └── prediccion.py      # Predicción PM2.5 24h (Prophet / fallback lineal)
 ├── llm/
-│   └── resumenes.py       # Resumenes y alertas con Groq
+│   ├── __init__.py
+│   └── resumenes.py       # Resúmenes y alertas con Groq
 ├── dashboard/
-│   └── app.py             # Dashboard Streamlit
+│   └── app.py             # Dashboard Streamlit (incluye filtro por país)
 ├── data/
 │   ├── raw/               # JSON crudos de las APIs
 │   └── processed/         # CSV, SQLite, modelos y predicciones
 └── notebooks/
-    └── exploracion.ipynb  # Analisis exploratorio
+    └── exploracion.ipynb  # Análisis exploratorio
 ```
+
+---
+
+## Documentación detallada
+
+Para una lista completa y desglosada de todas las funcionalidades implementadas (ingesta, preprocesamiento, modelos, dashboard, etc.), consulta el archivo [FUNCIONALIDADES.md](FUNCIONALIDADES.md).
+
+---
+
 
 ---
 

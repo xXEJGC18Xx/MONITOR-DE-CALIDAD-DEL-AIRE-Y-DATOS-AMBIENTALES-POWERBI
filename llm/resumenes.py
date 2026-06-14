@@ -29,6 +29,7 @@ def _get_client():
     groq.Groq | None
         Cliente listo para usar, o None si falta la clave o el paquete.
     """
+    # Si la API key no está configurada o es la de reemplazo, no se puede crear el cliente.
     if not GROQ_API_KEY or GROQ_API_KEY.startswith("REEMPLAZAR"):
         logger.warning("GROQ_API_KEY no configurada; se usará respaldo.")
         return None
@@ -57,7 +58,9 @@ def _metricas_resumen(df):
     dict
         ciudad_max_aqi, ciudad_min_aqi, promedio_pm25, ciudades_sobre_100.
     """
+    # Eliminamos filas sin AQI para poder obtener máximos/mínimos.
     df_validas = df.dropna(subset=["aqi"])
+    # Si no hay datos válidos, devolvemos valores por defecto.
     if df_validas.empty:
         return {
             "ciudad_max_aqi": "N/D",
@@ -65,6 +68,7 @@ def _metricas_resumen(df):
             "promedio_pm25": 0.0,
             "ciudades_sobre_100": 0,
         }
+    # Índices de la ciudad con mayor y menor AQI.
     idx_max = df_validas["aqi"].idxmax()
     idx_min = df_validas["aqi"].idxmin()
     return {
@@ -90,7 +94,9 @@ def generar_resumen_diario(df):
     str
         Texto del resumen, o un mensaje de respaldo si la llamada falla.
     """
+    # Obtenemos métricas resumidas del DataFrame.
     m = _metricas_resumen(df)
+    # Texto de respaldo en caso de que la API falle.
     respaldo = (
         f"Estado del aire en America Latina: la ciudad con peor calidad es "
         f"{m['ciudad_max_aqi']} y la mejor es {m['ciudad_min_aqi']}. "
@@ -99,10 +105,12 @@ def generar_resumen_diario(df):
         f"Se recomienda a la población sensible limitar la exposición al aire libre."
     )
 
+    # Intentamos obtener el cliente Groq; si no está disponible, devolvemos respaldo.
     cliente = _get_client()
     if cliente is None:
         return respaldo
 
+    # Construimos el prompt con las métricas obtenidas.
     prompt = (
         "Eres un experto en calidad del aire y medio ambiente en América Latina. "
         "Los siguientes datos corresponden al monitoreo del día actual en diversas "
@@ -121,6 +129,7 @@ def generar_resumen_diario(df):
     )
 
     try:
+        # Llamada a la API de Groq.
         respuesta = cliente.chat.completions.create(
             model=GROQ_MODELO,
             messages=[{"role": "user", "content": prompt}],
@@ -148,6 +157,7 @@ def generar_alerta(ciudad, aqi):
     str
         Mensaje de alerta breve, o un respaldo si la llamada falla.
     """
+    # Texto de respaldo genérico.
     respaldo = (
         f"Alerta en {ciudad}: AQI de {aqi:.0f}. "
         f"Se recomienda reducir las actividades al aire libre, especialmente "
@@ -158,6 +168,7 @@ def generar_alerta(ciudad, aqi):
     if cliente is None:
         return respaldo
 
+    # Prompt específico para generar una alerta breve.
     prompt = (
         f"Eres un experto ambiental en America Latina. La ciudad de {ciudad} registra "
         f"un AQI de {aqi:.0f}. Escribe una alerta breve (máximo 40 palabras) en "
@@ -178,6 +189,7 @@ def generar_alerta(ciudad, aqi):
 
 
 if __name__ == "__main__":
+    # Ejecución de prueba: carga los datos procesados y muestra un resumen.
     import pandas as pd
     from config import CSV_PROCESADO
 

@@ -46,14 +46,17 @@ def _cargar_ciudad(ciudad):
         Filas de esa ciudad con timestamp como datetime, ordenadas en el
         tiempo. Vacío si no hay datos.
     """
+    # Verificar que el archivo procesado exista.
     if not CSV_PROCESADO.exists():
         logger.error("No existe %s. Ejecute primero el pipeline.", CSV_PROCESADO)
         return pd.DataFrame()
 
+    # Leer el CSV y filtrar por ciudad.
     df = pd.read_csv(CSV_PROCESADO)
     df = df[df["ciudad"] == ciudad].copy()
     if df.empty:
         return df
+    # Convertir timestamp a datetime y eliminar filas con valores nulos.
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
     df = df.dropna(subset=["timestamp", "pm25"]).sort_values("timestamp")
     return df
@@ -73,19 +76,23 @@ def _predecir_prophet(df):
     pandas.DataFrame
         Columnas: hora, pm25_predicho, lower, upper.
     """
+    # Preparar el DataFrame en el formato que espera Prophet: ds (fecha) y y (valor).
     entreno = pd.DataFrame({
         "ds": df["timestamp"].dt.tz_localize(None),
         "y": df["pm25"].astype(float),
     })
 
+    # Crear y entrenar el modelo Prophet con estacionalidad diaria.
     modelo = Prophet(seasonality_mode="multiplicative",
                      daily_seasonality=True)
     modelo.fit(entreno)
 
+    # Generar 24 horas futuras a partir de los datos históricos.
     futuro = modelo.make_future_dataframe(periods=24, freq="H")
     pronostico = modelo.predict(futuro)
     futuro_24 = pronostico.tail(24)
 
+    # Extraer las columnas de interés.
     return pd.DataFrame({
         "hora": futuro_24["ds"].values,
         "pm25_predicho": futuro_24["yhat"].values,
@@ -117,17 +124,18 @@ def _predecir_lineal(df):
     if "dia_semana" not in df.columns:
         df["dia_semana"] = df["timestamp"].dt.dayofweek
 
+    # Definir variables predictoras y objetivo.
     X = df[["hora_del_dia", "dia_semana"]].astype(float)
     y = df["pm25"].astype(float)
 
     modelo = LinearRegression()
     modelo.fit(X, y)
 
-    # Margen de confianza aproximado a partir del error residual.
+    # Calcular margen de confianza basado en el error residual.
     residual = y - modelo.predict(X)
     margen = float(np.std(residual)) if len(residual) > 1 else 5.0
 
-    # Generar las próximas 24 horas a partir de la última marca conocida.
+    # Generar marcas de tiempo para las próximas 24 horas.
     ultima = df["timestamp"].max()
     horas_futuras = [ultima + timedelta(hours=h) for h in range(1, 25)]
     X_fut = pd.DataFrame({
@@ -135,6 +143,7 @@ def _predecir_lineal(df):
         "dia_semana": [t.dayofweek for t in horas_futuras],
     }).astype(float)
 
+    # Realizar predicción y limitar valores negativos a 0.
     pred = modelo.predict(X_fut)
     pred = np.clip(pred, 0, None)  # PM2.5 no puede ser negativo
 
@@ -164,12 +173,14 @@ def entrenar_y_predecir(ciudad):
         Predicción con columnas hora, pm25_predicho, lower, upper. Vacío si
         no hay datos suficientes.
     """
+    # Cargar datos históricos de la ciudad.
     df = _cargar_ciudad(ciudad)
     if df.empty or len(df) < 2:
         logger.error("Datos insuficientes para predecir en %s.", ciudad)
         return pd.DataFrame(columns=["hora", "pm25_predicho", "lower", "upper"])
 
     try:
+        # Elegir método según disponibilidad de Prophet.
         if PROPHET_DISPONIBLE:
             resultado = _predecir_prophet(df)
         else:
@@ -178,7 +189,7 @@ def entrenar_y_predecir(ciudad):
         logger.error("Prophet falló (%s); usando regresión lineal.", exc)
         resultado = _predecir_lineal(df)
 
-    # Guardar predicción.
+    # Guardar la predicción en un archivo CSV.
     ciudad_slug = ciudad.lower().replace(" ", "_")
     ruta = PROCESSED_DIR / f"predicciones_{ciudad_slug}.csv"
     try:
@@ -191,6 +202,7 @@ def entrenar_y_predecir(ciudad):
 
 
 if __name__ == "__main__":
+    # Ejemplo de uso: predecir para la primera ciudad de la lista.
     from config import CIUDADES
     primera = next(iter(CIUDADES))
     pred = entrenar_y_predecir(primera)

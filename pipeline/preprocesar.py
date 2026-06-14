@@ -37,9 +37,11 @@ def cargar_ultimos_archivos():
     tuple[pandas.DataFrame, pandas.DataFrame]
         (df_waqi, df_clima). Cualquiera puede venir vacío si no hay archivos.
     """
+    # Obtener listas de archivos ordenadas por nombre (más reciente primero).
     waqi_files = sorted(glob.glob(str(RAW_DIR / "waqi_*.json")), reverse=True)
     clima_files = sorted(glob.glob(str(RAW_DIR / "clima_*.json")), reverse=True)
 
+    # Cargar el más reciente de cada tipo si existe.
     df_waqi = pd.read_json(waqi_files[0]) if waqi_files else pd.DataFrame()
     df_clima = pd.read_json(clima_files[0]) if clima_files else pd.DataFrame()
 
@@ -68,6 +70,7 @@ def fusionar(df_waqi, df_clima):
     pandas.DataFrame
         DataFrame fusionado por ciudad.
     """
+    # Si alguno está vacío, devolver el otro.
     if df_waqi.empty:
         return df_clima.copy()
     if df_clima.empty:
@@ -77,6 +80,7 @@ def fusionar(df_waqi, df_clima):
     columnas_comunes = (set(df_waqi.columns) & set(df_clima.columns)) - {"ciudad"}
     df_clima_reducido = df_clima.drop(columns=list(columnas_comunes), errors="ignore")
 
+    # Realizar merge outer para no perder ciudades que solo estén en una fuente.
     fusion = pd.merge(df_waqi, df_clima_reducido, on="ciudad", how="outer")
     logger.info("Fusión completada: %d filas, %d columnas",
                 len(fusion), fusion.shape[1])
@@ -110,6 +114,7 @@ def preprocesar(df):
 
     df = df.copy()
 
+    # Verificar columnas esenciales.
     if "timestamp" not in df.columns:
         logger.warning("Columna timestamp ausente; se usará NaT.")
         df["timestamp"] = pd.NaT
@@ -140,7 +145,7 @@ def preprocesar(df):
     df["es_fin_de_semana"] = (df["dia_semana"] >= 5).astype(int)
     df["mes"] = df["timestamp"].dt.month
 
-    # 4b) features derivados del AQI
+    # 4b) features derivados del AQI usando la función auxiliar de config.
     categorias = df["aqi"].apply(get_categoria_aqi)
     df["categoria_aqi"] = categorias.apply(lambda c: c["etiqueta"])
     df["color_aqi"] = categorias.apply(lambda c: c["color"])
@@ -174,6 +179,7 @@ def guardar_procesado(df):
         else:
             combinado = df.copy()
 
+        # Eliminar duplicados basados en ciudad y timestamp, conservando el último.
         combinado = combinado.drop_duplicates(
             subset=["ciudad", "timestamp"], keep="last"
         ).reset_index(drop=True)
@@ -193,6 +199,7 @@ def guardar_procesado(df):
 
 
 if __name__ == "__main__":
+    # Ejecutar todo el flujo de preprocesamiento.
     df_waqi, df_clima = cargar_ultimos_archivos()
     fusion = fusionar(df_waqi, df_clima)
     procesado = preprocesar(fusion)

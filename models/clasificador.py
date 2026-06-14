@@ -53,14 +53,17 @@ def entrenar_clasificador():
     """
    
     """Entrena el clasificador sin eliminar clases raras."""
+    # Verificar existencia del archivo procesado.
     if not CSV_PROCESADO.exists():
         logger.error("No existe %s. Ejecute primero el pipeline.", CSV_PROCESADO)
         return None, {}
 
+    # Cargar datos y eliminar filas con valores nulos en features o target.
     df = pd.read_csv(CSV_PROCESADO)
     columnas = FEATURES + [TARGET]
     df = df.dropna(subset=columnas)
 
+    # Validar que haya al menos dos clases distintas.
     if df.empty or df[TARGET].nunique() < 2:
         logger.error("Datos insuficientes o menos de 2 clases para entrenar.")
         return None, {}
@@ -73,7 +76,7 @@ def entrenar_clasificador():
         X, y, test_size=0.20, random_state=42, stratify=None
     )
 
-    # Verificar que haya al menos 2 clases en entrenamiento y que cada una tenga al menos 1 muestra
+    # Verificar que haya al menos 2 clases en entrenamiento.
     if y_train.nunique() < 2:
         logger.error("Entrenamiento con una sola clase, no se puede entrenar.")
         return None, {}
@@ -85,24 +88,24 @@ def entrenar_clasificador():
     ])
 
     # --- 3. GridSearchCV con validación cruzada simple (no estratificada) ---
-    #    Usamos KFold normal (no StratifiedKFold) para evitar errores con clases raras
     from sklearn.model_selection import KFold
     param_grid = {
         "rf__n_estimators": [100, 200],
         "rf__max_depth": [5, 10, None],
     }
     # Número de folds: no puede superar el tamaño de la clase más pequeña, pero como no estratificamos,
-    # podemos usar un valor fijo pequeño. Si alguna clase tiene 1 muestra, KFold normal igual partirá
-    # los datos sin respetar clases, lo cual es aceptable para validación.
+    # podemos usar un valor fijo pequeño.
     cv_folds = min(3, len(X_train))  # máximo 3 folds
     if cv_folds < 2:
         logger.error("Muy pocos datos para validación cruzada.")
         return None, {}
 
     kfold = KFold(n_splits=cv_folds, shuffle=True, random_state=42)
+    # Usamos balanced_accuracy como métrica para manejo de clases desbalanceadas.
     grid = GridSearchCV(pipeline, param_grid, cv=kfold, n_jobs=-1, scoring="balanced_accuracy")
     grid.fit(X_train, y_train)
 
+    # Evaluar el mejor modelo en el conjunto de prueba.
     modelo = grid.best_estimator_
     y_pred = modelo.predict(X_test)
     acc = accuracy_score(y_test, y_pred)
@@ -113,6 +116,7 @@ def entrenar_clasificador():
     print("Classification report:")
     print(reporte)
 
+    # Guardar el modelo entrenado con joblib.
     joblib.dump(modelo, MODELO_CLASIFICADOR)
     logger.info("Modelo guardado en %s", MODELO_CLASIFICADOR)
 
@@ -122,6 +126,7 @@ def entrenar_clasificador():
         "classification_report": reporte,
     }
     return modelo, metricas
+
 
 def predecir(datos_dict):
     """
@@ -137,10 +142,12 @@ def predecir(datos_dict):
     str | None
         Categoría AQI predicha como texto, o None si el modelo no existe.
     """
+    # Verificar existencia del archivo del modelo.
     if not MODELO_CLASIFICADOR.exists():
         logger.error("No existe el modelo. Entrene primero con entrenar_clasificador().")
         return None
 
+    # Cargar modelo y realizar predicción.
     modelo = joblib.load(MODELO_CLASIFICADOR)
     fila = pd.DataFrame([{f: datos_dict.get(f) for f in FEATURES}])
     prediccion = modelo.predict(fila)[0]
@@ -162,6 +169,7 @@ def get_feature_importance():
         return None
 
     modelo = joblib.load(MODELO_CLASIFICADOR)
+    # Acceder al RandomForest dentro del pipeline.
     rf = modelo.named_steps["rf"]
     importancias = pd.DataFrame({
         "feature": FEATURES,
@@ -171,6 +179,7 @@ def get_feature_importance():
 
 
 if __name__ == "__main__":
+    # Ejecutar entrenamiento y mostrar importancia de features.
     modelo, metricas = entrenar_clasificador()
     if modelo is not None:
         print("\n=== Importancia de features ===")

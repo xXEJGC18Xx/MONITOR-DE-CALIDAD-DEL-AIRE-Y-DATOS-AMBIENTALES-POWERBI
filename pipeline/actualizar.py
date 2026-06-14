@@ -68,17 +68,23 @@ def ejecutar_pipeline():
     """
     logger.info("======== EJECUCIÓN DEL PIPELINE ========")
 
+    # Paso 1: ingesta WAQI
     df_waqi = _paso("ingesta WAQI", fetch_todas_ciudades)
+    # Paso 2: ingesta clima
     df_clima = _paso("ingesta clima", fetch_clima_todas_ciudades)
 
+    # Si ambas ingestas fallaron, no se puede continuar.
     if df_waqi is None and df_clima is None:
         logger.error("Ambas ingestas fallaron; se aborta la fusión.")
         return
 
+    # Paso 3: fusión de DataFrames
     fusion = _paso("fusión", fusionar,
                    df_waqi if df_waqi is not None else _df_vacio(),
                    df_clima if df_clima is not None else _df_vacio())
+    # Paso 4: preprocesamiento
     procesado = _paso("preprocesamiento", preprocesar, fusion)
+    # Paso 5: guardado si el preprocesamiento fue exitoso
     if procesado is not None:
         _paso("guardado", guardar_procesado, procesado)
 
@@ -104,14 +110,16 @@ def main():
     args = parser.parse_args()
 
     if args.now:
+        # Modo único: ejecutar una vez y salir.
         logger.info("Modo --now: ejecución inmediata única.")
         ejecutar_pipeline()
         return
 
-    # Modo programado: cada hora.
+    # Modo programado: ejecutar ahora y luego cada hora.
     logger.info("Modo programado: el pipeline correrá cada hora.")
     ejecutar_pipeline()  # primera corrida inmediata
     schedule.every(1).hours.do(ejecutar_pipeline)
+    # Bucle infinito para mantener el scheduler.
     while True:
         schedule.run_pending()
         time.sleep(60)
