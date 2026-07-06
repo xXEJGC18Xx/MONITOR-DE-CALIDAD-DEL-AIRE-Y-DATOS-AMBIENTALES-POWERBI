@@ -188,6 +188,59 @@ def generar_alerta(ciudad, aqi):
         return respaldo
 
 
+def guardar_resumen_diario(df, processed_dir):
+    """
+    Genera el resumen diario con el LLM y lo guarda en un CSV acumulativo
+    para que Power BI pueda leerlo como tabla de hechos.
+
+    Columnas: fecha, timestamp_generacion, ciudad_max_aqi, ciudad_min_aqi,
+    promedio_pm25, ciudades_sobre_100, resumen_texto.
+
+    Si ya existe un resumen del mismo dia, lo reemplaza.
+
+    Parametros
+    ----------
+    df : pandas.DataFrame
+        Dataset con las ultimas lecturas por ciudad.
+    processed_dir : str | pathlib.Path
+        Carpeta donde se persiste el CSV (tipicamente data/processed).
+
+    Retorna
+    -------
+    str
+        Texto del resumen generado.
+    """
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    import pandas as pd
+
+    m = _metricas_resumen(df)
+    texto = generar_resumen_diario(df)
+
+    nuevo = pd.DataFrame([{
+        "fecha":                datetime.now(timezone.utc).date().isoformat(),
+        "timestamp_generacion": datetime.now(timezone.utc).isoformat(),
+        "ciudad_max_aqi":       m["ciudad_max_aqi"],
+        "ciudad_min_aqi":       m["ciudad_min_aqi"],
+        "promedio_pm25":        round(m["promedio_pm25"], 1),
+        "ciudades_sobre_100":   m["ciudades_sobre_100"],
+        "resumen_texto":        texto,
+    }])
+
+    ruta = Path(processed_dir) / "resumenes_diarios.csv"
+
+    if ruta.exists():
+        previo = pd.read_csv(ruta)
+        previo = previo[previo["fecha"] != nuevo["fecha"].iloc[0]]
+        combinado = pd.concat([previo, nuevo], ignore_index=True)
+    else:
+        combinado = nuevo
+
+    combinado.to_csv(ruta, index=False)
+    return texto
+
+
 if __name__ == "__main__":
     # Ejecución de prueba: carga los datos procesados y muestra un resumen.
     import pandas as pd

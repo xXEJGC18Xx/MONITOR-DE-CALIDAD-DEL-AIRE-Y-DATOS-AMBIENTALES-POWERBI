@@ -15,8 +15,11 @@ import logging
 import time
 from datetime import datetime
 
+import pandas as pd
 import schedule
 
+from config import CSV_PROCESADO, PROCESSED_DIR
+from llm.resumenes import guardar_resumen_diario
 from pipeline.ingesta_clima import fetch_clima_todas_ciudades
 from pipeline.ingesta_waqi import fetch_todas_ciudades
 from pipeline.preprocesar import fusionar, guardar_procesado, preprocesar
@@ -88,7 +91,23 @@ def ejecutar_pipeline():
     if procesado is not None:
         _paso("guardado", guardar_procesado, procesado)
 
+    # Paso 6: generar resumen diario con LLM y persistirlo para Power BI
+    if CSV_PROCESADO.exists():
+        _paso("resumen diario LLM", _generar_y_guardar_resumen)
+
     logger.info("======== FIN DE LA EJECUCIÓN ========")
+
+
+def _generar_y_guardar_resumen():
+    """Carga el CSV procesado, toma las ultimas lecturas por ciudad y guarda
+    el resumen diario generado por el LLM en data/processed/resumenes_diarios.csv."""
+    datos = pd.read_csv(CSV_PROCESADO)
+    ultimas = (
+        datos.sort_values("timestamp")
+        .groupby("ciudad", as_index=False)
+        .tail(1)
+    )
+    guardar_resumen_diario(ultimas, PROCESSED_DIR)
 
 
 def _df_vacio():
