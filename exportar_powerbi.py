@@ -117,7 +117,7 @@ def construir_dim_tiempo(df):
     dim["semana"]        = dim["timestamp"].dt.isocalendar().week.astype(int)
     dim["mes"]           = dim["timestamp"].dt.month
     dim["nombre_mes"]    = dim["timestamp"].dt.month_name()
-    dim["anio"]          = dim["timestamp"].dt.year
+    dim["year"]          = dim["timestamp"].dt.year
     return dim
 
 

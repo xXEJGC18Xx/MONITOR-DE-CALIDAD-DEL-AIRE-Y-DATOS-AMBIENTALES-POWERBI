@@ -20,6 +20,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def _limpiar_texto(texto):
+    """
+    Colapsa saltos de línea y espacios repetidos a un solo espacio.
+
+    El texto generado por el LLM suele traer párrafos separados por saltos
+    de línea; guardarlos tal cual en el CSV rompe el parser de Power BI, que
+    interpreta cada salto como una fila nueva. Se deja todo en una sola
+    línea para que cualquier herramienta lo lea sin problema.
+    """
+    return " ".join(texto.split())
+
+
 def _get_client():
     """
     Crea el cliente de Groq de forma perezosa.
@@ -135,7 +147,7 @@ def generar_resumen_diario(df):
             messages=[{"role": "user", "content": prompt}],
             max_tokens=GROQ_MAX_TOKENS,
         )
-        return respuesta.choices[0].message.content.strip()
+        return _limpiar_texto(respuesta.choices[0].message.content)
     except Exception as exc:  # noqa: BLE001 - nunca propagar al dashboard
         logger.error("Fallo al generar resumen con Groq: %s", exc)
         return respaldo
@@ -182,7 +194,7 @@ def generar_alerta(ciudad, aqi):
             messages=[{"role": "user", "content": prompt}],
             max_tokens=120,
         )
-        return respuesta.choices[0].message.content.strip()
+        return _limpiar_texto(respuesta.choices[0].message.content)
     except Exception as exc:  # noqa: BLE001
         logger.error("Fallo al generar alerta con Groq: %s", exc)
         return respaldo

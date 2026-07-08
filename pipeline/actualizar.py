@@ -2,8 +2,10 @@
 pipeline/actualizar.py
 ======================
 Orquestador del pipeline completo. Ejecuta en secuencia la ingesta de WAQI,
-la ingesta de clima, la fusión, el preprocesamiento y el guardado. Puede
-correr de forma programada (cada hora) o de inmediato con la bandera --now.
+la ingesta de clima, la fusión, el preprocesamiento, el guardado, la
+predicción PM2.5 a 24h de todas las ciudades y el resumen diario del LLM.
+Puede correr de forma programada (cada hora) o de inmediato con la bandera
+--now.
 
 Uso:
     python pipeline/actualizar.py --now    # ejecución inmediata (1 vez)
@@ -18,8 +20,9 @@ from datetime import datetime
 import pandas as pd
 import schedule
 
-from config import CSV_PROCESADO, PROCESSED_DIR
+from config import CIUDADES, CSV_PROCESADO, PROCESSED_DIR
 from llm.resumenes import guardar_resumen_diario
+from models.prediccion import entrenar_y_predecir
 from pipeline.ingesta_clima import fetch_clima_todas_ciudades
 from pipeline.ingesta_waqi import fetch_todas_ciudades
 from pipeline.preprocesar import fusionar, guardar_procesado, preprocesar
@@ -91,11 +94,31 @@ def ejecutar_pipeline():
     if procesado is not None:
         _paso("guardado", guardar_procesado, procesado)
 
-    # Paso 6: generar resumen diario con LLM y persistirlo para Power BI
+    # Paso 6: predicción PM2.5 24h para todas las ciudades (alimenta fact_predicciones)
+    if CSV_PROCESADO.exists():
+        _paso("predicción PM2.5 24h (todas las ciudades)", _predecir_todas_ciudades)
+
+    # Paso 7: generar resumen diario con LLM y persistirlo para Power BI
     if CSV_PROCESADO.exists():
         _paso("resumen diario LLM", _generar_y_guardar_resumen)
 
     logger.info("======== FIN DE LA EJECUCIÓN ========")
+
+
+def _predecir_todas_ciudades():
+    """
+    Genera la predicción PM2.5 a 24h para cada ciudad configurada.
+
+    Guarda un CSV por ciudad (data/processed/predicciones_{ciudad}.csv) para
+    que exportar_powerbi.py pueda consolidarlos en fact_predicciones. Si una
+    ciudad no tiene datos suficientes o falla, se registra el error y se
+    continúa con las demás.
+    """
+    for ciudad in CIUDADES:
+        try:
+            entrenar_y_predecir(ciudad)
+        except Exception as exc:  # noqa: BLE001 - una ciudad no debe tumbar las demás
+            logger.error("Falló la predicción de %s: %s", ciudad, exc)
 
 
 def _generar_y_guardar_resumen():

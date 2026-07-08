@@ -132,11 +132,12 @@ Cada ciudad incluye:
 
 ## 6. Orquestación del pipeline
 
-- Ejecuta el pipeline ETL completo: WAQI → clima → fusión → preprocesamiento → guardado.
+- Ejecuta el pipeline completo: WAQI → clima → fusión → preprocesamiento → guardado → predicción PM2.5 24h (todas las ciudades) → resumen diario LLM.
 - Registra inicio, fin y duración de cada paso.
 - Captura errores por paso sin detener los demás.
 - Si ambas ingestas fallan, aborta la fusión.
 - Usa DataFrames vacíos como respaldo cuando una fuente falla.
+- Genera la predicción PM2.5 a 24h de **todas** las ciudades configuradas (no solo una), guardando un CSV por ciudad para alimentar `fact_predicciones` en Power BI. Si una ciudad falla, se registra el error y se continúa con las demás.
 - Permite ejecución inmediata con `python -m pipeline.actualizar --now`.
 - Permite ejecución programada (sin `--now`): corre cada hora usando `schedule` (primera ejecución inmediata).
 - Provee ayuda de línea de comandos con `--help`.
@@ -166,9 +167,8 @@ Cada ciudad incluye:
 - Lee datos históricos desde `data/processed/datos.csv`, filtra por ciudad.
 - Convierte timestamp a datetime UTC, ordena y descarta filas sin PM2.5.
 - Requiere al menos 2 registros históricos.
-- **Método principal**: Prophet (con estacionalidad multiplicativa y diaria).
-- **Fallback automático**: Regresión lineal usando hora_del_dia y dia_semana como features.
-- Si Prophet falla, usa regresión lineal (con margen de confianza basado en residuales).
+- **Método**: Regresión lineal (scikit-learn) usando hora_del_dia y dia_semana como features.
+- Calcula un margen de confianza (`lower`/`upper`) a partir de la desviación estándar de los residuales del modelo.
 - Evita predicciones negativas con `np.clip`.
 - Devuelve DataFrame con columnas: `hora`, `pm25_predicho`, `lower`, `upper`.
 - Guarda la predicción en `data/processed/predicciones_{ciudad}.csv`.
@@ -185,30 +185,14 @@ Cada ciudad incluye:
 - Nunca propaga errores de Groq al dashboard.
 - Puede ejecutarse directamente para generar resumen desde el CSV procesado.
 
-## 10. Dashboard Streamlit
+## 10. Modelo estrella y dashboard Power BI
 
-- Interfaz web interactiva con Streamlit (layout `wide`).
-- Carga datos procesados desde CSV con caché (TTL 300 segundos).
-- **Filtro por país**:  
-  - Selector de países (con búsqueda integrada) que agrupa las ciudades disponibles.  
-  - Expander "Afinar ciudades" para seleccionar ciudades específicas dentro de los países elegidos.  
-  - Esto facilita la navegación entre las ~27 ciudades monitoreadas.
-- Filtro por rango de fechas (desde la fecha mínima hasta la máxima del dataset).
-- Selector de contaminante a graficar (PM2.5, PM10, CO, O3).
-- Botón **Actualizar datos**: ejecuta el pipeline completo, limpia caché y recarga la app.
-- KPIs principales: AQI promedio actual, ciudad más contaminada, PM2.5 promedio, categoría general (con barra de color).
-- **Mapa Folium** centrado en América Latina:  
-  - Círculos por ciudad con radio proporcional al AQI.  
-  - Color según categoría AQI.  
-  - Popup con nombre, AQI, PM2.5 y categoría.  
-  - Tooltip con estilo personalizado.
-- **Resumen diario** generado por LLM (con opción de regenerar manualmente).
-- Pestañas:
-  - **Serie temporal**: gráfico de línea del contaminante seleccionado (Plotly Express).
-  - **Predicción 24h**: selector de ciudad, botón para generar predicción (cacheada en sesión), gráfico con intervalo de confianza.
-  - **Importancia de features**: gráfico de barras horizontales desde el clasificador entrenado.
-  - **Correlación**: heatmap de correlación entre variables numéricas (excluye derivadas como `es_fin_de_semana`, `mes`, `riesgo_salud`).
-- **Alerta de AQI > 100**: tabla con ciudades que superan AQI 100, ordenadas de mayor a menor, con estilos de fondo según nivel de riesgo (rojo claro, naranja claro, amarillo claro, gris).
+- `exportar_powerbi.py` construye el modelo estrella a partir de `data/processed/datos.csv` y los CSV auxiliares del pipeline.
+- Genera 6 tablas: `fact_lecturas`, `dim_ciudad`, `dim_tiempo`, `dim_categoria_aqi`, `fact_predicciones`, `fact_resumenes`.
+- Normaliza nombres de ciudad entre fuentes (mapeo de variantes) para que los `JOIN` en Power BI funcionen correctamente.
+- Exporta cada tabla como CSV individual en `data/processed/modelo_estrella/`.
+- Exporta también un único Excel (`data/processed/modelo_estrella_powerbi.xlsx`) con una hoja por tabla, si `openpyxl`/`xlsxwriter` están disponibles.
+- El dashboard oficial es el archivo `Modelo Estrella - Calidad del Aire en América Latina.pbix` (Power BI Desktop), que se conecta a estas tablas y se actualiza manualmente desde Power BI.
 
 ## 11. Persistencia de datos y artefactos
 
@@ -222,13 +206,11 @@ Cada ciudad incluye:
 
 - No detiene el pipeline si falla una ciudad o una fuente.
 - Registra errores de red, parseo, escritura y SQLite.
-- Fallback de Prophet a regresión lineal.
 - Fallback de Groq a textos locales.
 - Validación de datos insuficientes antes de entrenar/predecir.
-- El dashboard no se rompe si faltan datos, modelo o API key.
+- La exportación a Power BI omite tablas vacías (predicciones o resúmenes) sin fallar si aún no se generaron.
 
 ## 13. Automatización y ejecución
 
-- Ejecución desde línea de comandos: pipeline, ingestas individuales, preprocesamiento, clasificador, predicción, resumen LLM.
+- Ejecución desde línea de comandos: pipeline, ingestas individuales, preprocesamiento, clasificador, predicción, resumen LLM, exportación a Power BI.
 - Modo programado (cada hora) y modo único (`--now`).
-- Actualización de datos desde el propio dashboard.

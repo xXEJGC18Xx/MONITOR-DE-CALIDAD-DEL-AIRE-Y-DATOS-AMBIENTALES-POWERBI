@@ -20,3 +20,6 @@ __pycache__/
 .DS_Store
 
 app_old.py
+
+venv/
+.venv/

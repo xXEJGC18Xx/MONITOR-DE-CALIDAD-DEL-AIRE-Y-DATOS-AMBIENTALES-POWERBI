@@ -1,9 +1,8 @@
 """
 models/prediccion.py
 ====================
-Predicción de PM2.5 para las próximas 24 horas. Usa Prophet si está
-disponible; de lo contrario cae automáticamente a una regresión lineal de
-scikit-learn, sin que el usuario tenga que cambiar nada.
+Predicción de PM2.5 para las próximas 24 horas usando regresión lineal de
+scikit-learn (hora_del_dia y dia_semana como features).
 """
 
 import logging
@@ -11,6 +10,7 @@ from datetime import timedelta
 
 import numpy as np
 import pandas as pd
+from sklearn.linear_model import LinearRegression
 
 from config import CSV_PROCESADO, PROCESSED_DIR
 
@@ -19,16 +19,6 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
-
-# Detección de Prophet con fallback automático.
-try:
-    from prophet import Prophet
-    PROPHET_DISPONIBLE = True
-    logger.info("Prophet disponible: se usará para la predicción.")
-except ImportError:
-    from sklearn.linear_model import LinearRegression
-    PROPHET_DISPONIBLE = False
-    logger.warning("Prophet no disponible: se usará LinearRegression (fallback).")
 
 
 def _cargar_ciudad(ciudad):
@@ -62,49 +52,10 @@ def _cargar_ciudad(ciudad):
     return df
 
 
-def _predecir_prophet(df):
-    """
-    Genera la predicción de PM2.5 a 24h con Prophet.
-
-    Parámetros
-    ----------
-    df : pandas.DataFrame
-        Datos históricos de la ciudad (con 'timestamp' y 'pm25').
-
-    Retorna
-    -------
-    pandas.DataFrame
-        Columnas: hora, pm25_predicho, lower, upper.
-    """
-    # Preparar el DataFrame en el formato que espera Prophet: ds (fecha) y y (valor).
-    entreno = pd.DataFrame({
-        "ds": df["timestamp"].dt.tz_localize(None),
-        "y": df["pm25"].astype(float),
-    })
-
-    # Crear y entrenar el modelo Prophet con estacionalidad diaria.
-    modelo = Prophet(seasonality_mode="multiplicative",
-                     daily_seasonality=True)
-    modelo.fit(entreno)
-
-    # Generar 24 horas futuras a partir de los datos históricos.
-    futuro = modelo.make_future_dataframe(periods=24, freq="H")
-    pronostico = modelo.predict(futuro)
-    futuro_24 = pronostico.tail(24)
-
-    # Extraer las columnas de interés.
-    return pd.DataFrame({
-        "hora": futuro_24["ds"].values,
-        "pm25_predicho": futuro_24["yhat"].values,
-        "lower": futuro_24["yhat_lower"].values,
-        "upper": futuro_24["yhat_upper"].values,
-    })
-
-
 def _predecir_lineal(df):
     """
-    Fallback: predicción de PM2.5 a 24h con regresión lineal usando
-    hora_del_dia y dia_semana como features.
+    Predicción de PM2.5 a 24h con regresión lineal usando hora_del_dia y
+    dia_semana como features.
 
     Parámetros
     ----------
@@ -116,8 +67,6 @@ def _predecir_lineal(df):
     pandas.DataFrame
         Columnas: hora, pm25_predicho, lower, upper.
     """
-    from sklearn.linear_model import LinearRegression
-
     # Asegurar features temporales.
     if "hora_del_dia" not in df.columns:
         df["hora_del_dia"] = df["timestamp"].dt.hour
@@ -157,10 +106,9 @@ def _predecir_lineal(df):
 
 def entrenar_y_predecir(ciudad):
     """
-    Entrena el modelo de PM2.5 para una ciudad y predice las próximas 24h.
-
-    Usa Prophet si está disponible; de lo contrario regresión lineal. Guarda
-    el resultado en data/processed/predicciones_{ciudad}.csv.
+    Entrena el modelo de regresión lineal de PM2.5 para una ciudad y predice
+    las próximas 24h. Guarda el resultado en
+    data/processed/predicciones_{ciudad}.csv.
 
     Parámetros
     ----------
@@ -179,15 +127,7 @@ def entrenar_y_predecir(ciudad):
         logger.error("Datos insuficientes para predecir en %s.", ciudad)
         return pd.DataFrame(columns=["hora", "pm25_predicho", "lower", "upper"])
 
-    try:
-        # Elegir método según disponibilidad de Prophet.
-        if PROPHET_DISPONIBLE:
-            resultado = _predecir_prophet(df)
-        else:
-            resultado = _predecir_lineal(df)
-    except Exception as exc:  # noqa: BLE001 - fallback de seguridad
-        logger.error("Prophet falló (%s); usando regresión lineal.", exc)
-        resultado = _predecir_lineal(df)
+    resultado = _predecir_lineal(df)
 
     # Guardar la predicción en un archivo CSV.
     ciudad_slug = ciudad.lower().replace(" ", "_")

@@ -1,8 +1,8 @@
 # Monitor de Calidad del Aire y Datos Ambientales de América Latina
 
-Sistema integral de monitoreo ambiental que recopila, procesa y analiza la calidad del aire y las condiciones climáticas de ciudades clave de América Latina. El proyecto integra un pipeline de datos automatizado (con ingestas paralelas a WAQI y Open-Meteo usando `ThreadPoolExecutor`), modelos de Machine Learning para clasificación y predicción, generación de resúmenes con un modelo de lenguaje (LLM) y un dashboard interactivo construido con Streamlit que incluye **filtros por país y por ciudad**.
+Sistema integral de monitoreo ambiental que recopila, procesa y analiza la calidad del aire y las condiciones climáticas de ciudades clave de América Latina. El proyecto integra un pipeline de datos automatizado (con ingestas paralelas a WAQI y Open-Meteo usando `ThreadPoolExecutor`), modelos de Machine Learning para clasificación y predicción, generación de resúmenes con un modelo de lenguaje (LLM) y un modelo estrella exportado a Power BI, que es el dashboard oficial del proyecto.
 
-Desarrollado para la materia Gestión de la Información de la Universidad Tecnológica de Panamá (UTP), el sistema combina ingesta desde APIs públicas (WAQI y Open-Meteo), almacenamiento en CSV y SQLite, feature engineering, un clasificador Random Forest de categoría AQI (con manejo de clases desbalanceadas mediante `class_weight='balanced'` y validación cruzada no estratificada), predicción de PM2.5 a 24 horas con fallback a regresión lineal y visualización geoespacial con mapas Folium.
+Desarrollado para la materia Gestión de la Información de la Universidad Tecnológica de Panamá (UTP), el sistema combina ingesta desde APIs públicas (WAQI y Open-Meteo), almacenamiento en CSV y SQLite, feature engineering, un clasificador Random Forest de categoría AQI (con manejo de clases desbalanceadas mediante `class_weight='balanced'` y validación cruzada no estratificada), predicción de PM2.5 a 24 horas con regresión lineal y un modelo estrella (`exportar_powerbi.py`) que alimenta los dashboards de Power BI.
 
 ---
 
@@ -53,13 +53,13 @@ python -m pipeline.actualizar --now
 python -m models.clasificador
 ```
 
-### 3. Lanzar el dashboard
+### 3. Exportar el modelo estrella para Power BI
 
 ```bash
-streamlit run dashboard/app.py
+python exportar_powerbi.py
 ```
 
-El dashboard se abre automaticamente en `http://localhost:8501`.
+Genera las tablas de hechos y dimensiones en `data/processed/modelo_estrella/` (CSV) y, si `openpyxl` está instalado, en `data/processed/modelo_estrella_powerbi.xlsx`. Abre `Modelo Estrella - Calidad del Aire en América Latina.pbix` en Power BI Desktop y actualiza los datos (Inicio → Actualizar) para refrescar los dashboards.
 
 ---
 
@@ -80,15 +80,15 @@ Monitor-de-Calidad-del-Aire-y-Datos-Ambientales/
 ├── models/
 │   ├── __init__.py
 │   ├── clasificador.py    # Random Forest de categoría AQI
-│   └── prediccion.py      # Predicción PM2.5 24h (Prophet / fallback lineal)
+│   └── prediccion.py      # Predicción PM2.5 24h (regresión lineal)
 ├── llm/
 │   ├── __init__.py
 │   └── resumenes.py       # Resúmenes y alertas con Groq
-├── dashboard/
-│   └── app.py             # Dashboard Streamlit (incluye filtro por país)
+├── exportar_powerbi.py    # Genera el modelo estrella (6 tablas) para Power BI
+├── Modelo Estrella - Calidad del Aire en América Latina.pbix  # Dashboard Power BI
 ├── data/
-│   ├── raw/               # JSON crudos de las APIs
-│   └── processed/         # CSV, SQLite, modelos y predicciones
+│   ├── raw/                  # JSON crudos de las APIs
+│   └── processed/            # CSV, SQLite, modelos, predicciones y modelo estrella
 └── notebooks/
     └── exploracion.ipynb  # Análisis exploratorio
 ```
