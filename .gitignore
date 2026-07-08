@@ -23,3 +23,6 @@ app_old.py
 
 venv/
 .venv/
+
+.vscode/
+settings.json

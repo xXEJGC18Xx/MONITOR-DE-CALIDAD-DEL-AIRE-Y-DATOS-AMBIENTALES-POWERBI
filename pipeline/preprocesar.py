@@ -134,11 +134,19 @@ def preprocesar(df):
         return df
 
     # 3) interpolación lineal de columnas numéricas
+    # codigo_clima es un código categórico (estándar WMO: 0=despejado,
+    # 61=lluvia, 95=tormenta...) representado como número, no una magnitud
+    # continua. Interpolarlo linealmente "inventa" valores fraccionarios sin
+    # significado (ej. 26.5 no es un código real), así que se excluye y en
+    # su lugar se rellena con el código válido más cercano en el tiempo.
     columnas_num = df.select_dtypes(include="number").columns
-    if len(columnas_num) > 0:
-        df[columnas_num] = df[columnas_num].interpolate(
+    columnas_interpolables = columnas_num.drop("codigo_clima", errors="ignore")
+    if len(columnas_interpolables) > 0:
+        df[columnas_interpolables] = df[columnas_interpolables].interpolate(
             method="linear", limit_direction="both"
         )
+    if "codigo_clima" in df.columns:
+        df["codigo_clima"] = df["codigo_clima"].ffill().bfill()
 
     # 4) feature engineering temporal
     df["hora_del_dia"] = df["timestamp"].dt.hour
