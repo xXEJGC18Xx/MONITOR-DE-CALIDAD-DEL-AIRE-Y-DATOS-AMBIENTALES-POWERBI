@@ -184,6 +184,16 @@ Cada ciudad incluye:
 - Genera alertas cortas (máx. 40 palabras) por ciudad y AQI.
 - Nunca propaga errores de Groq al dashboard.
 - Puede ejecutarse directamente para generar resumen desde el CSV procesado.
+- Colapsa saltos de línea del texto generado a una sola línea (`_limpiar_texto`), para que el CSV exportado a Power BI no se corrompa.
+
+## 9b. Consultas en lenguaje natural al LLM (`llm/consultas.py`)
+
+- Permite hacer preguntas libres en español sobre el estado actual de la calidad del aire y el clima.
+- Arma un resumen de texto con la última lectura de cada ciudad (AQI, categoría, PM2.5, PM10, temperatura, humedad, viento) y se lo pasa al LLM como contexto.
+- Instruye al modelo a responder **solo** con base en ese contexto, sin inventar datos.
+- Soporta historial de conversación (varias preguntas seguidas manteniendo contexto), acotado a los últimos mensajes.
+- Si Groq no está disponible, devuelve el resumen de datos en texto plano en vez de fallar.
+- Accesible desde `python menu.py` (opción 4) o directamente con `python -m llm.consultas`.
 
 ## 10. Modelo estrella y dashboard Power BI
 
@@ -214,3 +224,4 @@ Cada ciudad incluye:
 
 - Ejecución desde línea de comandos: pipeline, ingestas individuales, preprocesamiento, clasificador, predicción, resumen LLM, exportación a Power BI.
 - Modo programado (cada hora) y modo único (`--now`).
+- **Menú interactivo** (`python menu.py`): centraliza todas las operaciones anteriores en un solo punto de entrada, con submenú para elegir el modo del pipeline (una vez / programado) y una sección de preguntas al LLM.

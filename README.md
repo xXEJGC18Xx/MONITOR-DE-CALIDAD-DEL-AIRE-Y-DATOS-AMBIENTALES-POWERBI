@@ -40,6 +40,16 @@ Tambien puedes crear un archivo `.env` en la raiz del proyecto con esos mismos v
 
 ## Uso
 
+### Menú interactivo (recomendado)
+
+```bash
+python menu.py
+```
+
+Abre un menú de terminal con todas las operaciones del proyecto: correr el pipeline (una vez o en modo programado cada hora), exportar a Power BI, entrenar el clasificador, y hacer **preguntas en lenguaje natural sobre los datos actuales** usando el LLM (ver sección siguiente).
+
+### Uso por línea de comandos (alternativa)
+
 ### 1. Ejecutar el pipeline de datos
 
 ```bash
@@ -60,6 +70,14 @@ python exportar_powerbi.py
 ```
 
 Genera las tablas de hechos y dimensiones en `data/processed/modelo_estrella/` (CSV) y, si `openpyxl` está instalado, en `data/processed/modelo_estrella_powerbi.xlsx`. Abre `Modelo Estrella - Calidad del Aire en América Latina.pbix` en Power BI Desktop y actualiza los datos (Inicio → Actualizar) para refrescar los dashboards.
+
+### 4. Preguntar al LLM sobre los datos
+
+```bash
+python -m llm.consultas
+```
+
+O, más fácil, usa la opción 4 del menú (`python menu.py`) para hacer varias preguntas seguidas en una conversación. El LLM responde solo con base en la última lectura disponible de cada ciudad (no inventa datos).
 
 ---
 
@@ -83,7 +101,9 @@ Monitor-de-Calidad-del-Aire-y-Datos-Ambientales/
 │   └── prediccion.py      # Predicción PM2.5 24h (regresión lineal)
 ├── llm/
 │   ├── __init__.py
-│   └── resumenes.py       # Resúmenes y alertas con Groq
+│   ├── resumenes.py       # Resúmenes y alertas con Groq
+│   └── consultas.py       # Preguntas en lenguaje natural sobre los datos (Groq)
+├── menu.py                # Menú interactivo de terminal (pipeline, export, LLM)
 ├── exportar_powerbi.py    # Genera el modelo estrella (6 tablas) para Power BI
 ├── Modelo Estrella - Calidad del Aire en América Latina.pbix  # Dashboard Power BI
 ├── data/
