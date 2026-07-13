@@ -4,6 +4,8 @@ Sistema integral de monitoreo ambiental que recopila, procesa y analiza la calid
 
 Desarrollado para la materia Gestión de la Información de la Universidad Tecnológica de Panamá (UTP), el sistema combina ingesta desde APIs públicas (WAQI y Open-Meteo), almacenamiento en CSV y SQLite, feature engineering, un clasificador Random Forest de categoría AQI (con manejo de clases desbalanceadas mediante `class_weight='balanced'` y validación cruzada no estratificada), predicción de PM2.5 a 24 horas con regresión lineal y un modelo estrella (`exportar_powerbi.py`) que alimenta los dashboards de Power BI.
 
+**En términos generales, ¿qué hace este proyecto?** Cada hora, el sistema descarga por su cuenta los datos de contaminación y clima de ~27 ciudades de América Latina, los limpia y organiza, entrena modelos que clasifican qué tan buena es la calidad del aire y predicen cómo va a estar en las próximas horas, le pide a un modelo de lenguaje que redacte un resumen del día en español, y deja todo listo para que un dashboard de Power BI lo muestre de forma visual e interactiva — sin que nadie tenga que hacer ese trabajo manualmente.
+
 ---
 
 ## Instalación
@@ -118,6 +120,8 @@ Monitor-de-Calidad-del-Aire-y-Datos-Ambientales/
 ## Documentación detallada
 
 Para una lista completa y desglosada de todas las funcionalidades implementadas (ingesta, preprocesamiento, modelos, dashboard, etc.), consulta el archivo [FUNCIONALIDADES.md](FUNCIONALIDADES.md).
+
+Para una explicación técnica pensada para la sustentación (qué hace cada función del código, cómo se integran los componentes, por qué el modelo estrella está diseñado así, y qué representa cada página del dashboard), consulta [DOCUMENTACION_TECNICA.md](DOCUMENTACION_TECNICA.md).
 
 ---
 
